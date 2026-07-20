@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ocorrências em Tempo Real - Leiria</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+
+<style>
+    * { box-sizing: border-box; }
+    body {
+        margin: 0; padding: 0; background: #09090b; color: #e2e8f0;
+        font-family: 'Chakra Petch', sans-serif; min-height: 100vh;
+    }
+
+    /* --- CABEÇALHO --- */
+    #header {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 16px 28px; background: rgba(15, 23, 42, 0.95);
+        border-bottom: 2px solid #3b82f6; box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+        flex-wrap: wrap; gap: 12px;
+    }
+    .title-block { display: flex; flex-direction: column; }
+    .title-main {
+        font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.5rem;
+        color: #fff; letter-spacing: 1.5px;
+        border-left: 5px solid #3b82f6; padding-left: 14px;
+    }
+    .title-sub { font-family: 'Orbitron'; font-size: 0.75rem; letter-spacing: 3px; color: #93c5fd; padding-left: 19px; margin-top: 2px; }
+
+    .header-right { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    #digitalClock { font-family: 'Orbitron'; color: #3b82f6; font-size: 1.4rem; font-weight: 700; }
+
+    #connStatus {
+        font-family: 'Orbitron'; font-size: 0.65rem; letter-spacing: 0.5px;
+        padding: 6px 12px; border-radius: 4px; background: rgba(0,0,0,0.3);
+        border: 1px solid #334155; color: #94a3b8;
+    }
+
+    @keyframes pulse-red {
+        0% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.3; transform: scale(0.85); }
+        100% { opacity: 1; transform: scale(1); }
+    }
+    .dot-live {
+        width: 9px; height: 9px; background: #ef4444; border-radius: 50%;
+        display: inline-block; box-shadow: 0 0 8px #ef4444;
+        animation: pulse-red 1.5s infinite ease-in-out;
+    }
+
+    /* --- AVISO DE LIMITAÇÃO --- */
+    #limitNotice {
+        margin: 14px 28px 0 28px; padding: 10px 16px; border-radius: 6px;
+        background: rgba(59,130,246,0.08); border: 1px solid #1e3a8a; color: #93c5fd;
+        font-size: 0.78rem; display: flex; align-items: center; gap: 10px;
+    }
+
+    /* --- WIDGETS DE ESTATÍSTICA --- */
+    #statsRow {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+        padding: 18px 28px 0 28px;
+    }
+    .stat-card {
+        background: rgba(15, 23, 42, 0.9); border: 1px solid #334155; border-radius: 6px;
+        padding: 14px 18px; border-left: 4px solid #3b82f6;
+    }
+    .stat-label { font-family: 'Orbitron'; font-size: 0.65rem; letter-spacing: 1px; color: #94a3b8; margin-bottom: 6px; }
+    .stat-value { font-family: 'Orbitron'; font-size: 1.8rem; font-weight: 700; color: #fff; }
+    .stat-sub { font-size: 0.7rem; color: #64748b; margin-top: 4px; }
+
+    /* --- GRELHA DE GRÁFICOS --- */
+    #chartsGrid {
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+        padding: 18px 28px 28px 28px;
+    }
+    .panel {
+        background: rgba(15, 23, 42, 0.9); border: 1px solid #334155; border-radius: 6px;
+        padding: 16px; display: flex; flex-direction: column; min-height: 300px;
+    }
+    .panel-title {
+        font-family: 'Orbitron'; font-size: 0.75rem; letter-spacing: 1px; color: #93c5fd;
+        margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+    }
+    .panel-body { flex-grow: 1; position: relative; }
+    .span-2 { grid-column: span 2; }
+
+    /* --- FEED / LISTA AO VIVO --- */
+    #liveFeed { list-style: none; margin: 0; padding: 0; overflow-y: auto; max-height: 280px; }
+    #liveFeed li {
+        padding: 9px 10px; border-bottom: 1px solid #1e293b; font-size: 0.78rem;
+        display: flex; flex-direction: column; gap: 3px;
+    }
+    #liveFeed li .feed-top { display: flex; justify-content: space-between; align-items: center; color: #f1f5f9; font-weight: 600; gap: 8px; }
+    #liveFeed li .feed-bottom { color: #64748b; font-size: 0.7rem; }
+    .estado-badge {
+        font-family: 'Orbitron'; font-size: 0.6rem; padding: 3px 8px; border-radius: 3px;
+        color: #fff; white-space: nowrap;
+    }
+    .estado-warning { background: #b45309; }
+    .estado-danger { background: #b91c1c; }
+    .estado-default { background: #475569; }
+    #emptyFeed { color: #64748b; font-size: 0.8rem; padding: 20px 10px; text-align: center; }
+
+    @media (max-width: 1000px) {
+        #statsRow { grid-template-columns: repeat(2, 1fr); }
+        #chartsGrid { grid-template-columns: 1fr; }
+        .span-2 { grid-column: span 1; }
+    }
+</style>
+</head>
+<body>
+
+<div id="header">
+    <div class="title-block">
+        <span class="title-main">OCORRÊNCIAS EM TEMPO REAL</span>
+        <span class="title-sub">CONCELHO DE LEIRIA</span>
+    </div>
+    <div class="header-right">
+        <div id="connStatus">A ligar aos dados reais...</div>
+        <div><span class="dot-live"></span></div>
+        <div id="digitalClock">00:00:00</div>
+    </div>
+</div>
+
+<div id="limitNotice">
+    <i class="fa-solid fa-circle-info"></i>
+    <span>Fonte: ocorrências <b>ativas</b> do SIGMOS (sem histórico próprio). Os gráficos diário/semanal/mensal são construídos automaticamente a partir de <b id="startedAtLabel">agora</b>, à medida que novas ocorrências vão surgindo.</span>
+</div>
+
+<div id="statsRow">
+    <div class="stat-card" style="border-left-color:#3b82f6">
+        <div class="stat-label"><i class="fa-solid fa-calendar-day"></i> OCORRÊNCIAS HOJE (DETETADAS)</div>
+        <div class="stat-value" id="statToday">0</div>
+        <div class="stat-sub" id="statLast">A aguardar primeira atualização...</div>
+    </div>
+    <div class="stat-card" style="border-left-color:#ef4444">
+        <div class="stat-label"><i class="fa-solid fa-bolt"></i> ATIVAS NESTE MOMENTO</div>
+        <div class="stat-value" id="statActive">0</div>
+        <div class="stat-sub" id="statActiveBreak">--</div>
+    </div>
+    <div class="stat-card" style="border-left-color:#f59e0b">
+        <div class="stat-label"><i class="fa-solid fa-calendar-week"></i> ÚLTIMOS 7 DIAS (DETETADAS)</div>
+        <div class="stat-value" id="statWeek">0</div>
+        <div class="stat-sub">Desde que o dashboard está ligado</div>
+    </div>
+    <div class="stat-card" style="border-left-color:#8b5cf6">
+        <div class="stat-label"><i class="fa-solid fa-calendar"></i> ÚLTIMOS 30 DIAS (DETETADAS)</div>
+        <div class="stat-value" id="statMonth">0</div>
+        <div class="stat-sub">Desde que o dashboard está ligado</div>
+    </div>
+</div>
+
+<div id="chartsGrid">
+    <div class="panel">
+        <div class="panel-title"><i class="fa-solid fa-truck-medical"></i> POR CORPO DE BOMBEIROS (HOJE)</div>
+        <div class="panel-body"><canvas id="chartCorpos"></canvas></div>
+    </div>
+    <div class="panel">
+        <div class="panel-title"><i class="fa-solid fa-tags"></i> POR CÓDIGO DE OCORRÊNCIA (HOJE)</div>
+        <div class="panel-body"><canvas id="chartCodigos"></canvas></div>
+    </div>
+    <div class="panel">
+        <div class="panel-title"><i class="fa-solid fa-map-location-dot"></i> POR LOCAL / FREGUESIA (HOJE)</div>
+        <div class="panel-body"><canvas id="chartFreguesias"></canvas></div>
+    </div>
+
+    <div class="panel span-2">
+        <div class="panel-title"><i class="fa-solid fa-chart-line"></i> OCORRÊNCIAS DETETADAS AO LONGO DO DIA</div>
+        <div class="panel-body"><canvas id="chartHourly"></canvas></div>
+    </div>
+    <div class="panel">
+        <div class="panel-title"><i class="fa-solid fa-bolt"></i> OCORRÊNCIAS ATIVAS AGORA</div>
+        <div class="panel-body">
+            <ul id="liveFeed"><li id="emptyFeed">Sem ocorrências ativas de momento.</li></ul>
+        </div>
+    </div>
+
+    <div class="panel span-2">
+        <div class="panel-title"><i class="fa-solid fa-chart-column"></i> ÚLTIMOS 7 DIAS (POR CORPO)</div>
+        <div class="panel-body"><canvas id="chartWeekly"></canvas></div>
+    </div>
+    <div class="panel">
+        <div class="panel-title"><i class="fa-solid fa-chart-area"></i> ÚLTIMOS 30 DIAS (TOTAL DIÁRIO)</div>
+        <div class="panel-body"><canvas id="chartMonthly"></canvas></div>
+    </div>
+</div>
+
+<script>
+// ============================================================================
+// LIGAÇÃO AOS DADOS REAIS (SIGMOS / Preventech) — ocorrências ATIVAS
+// ============================================================================
+const SIGMOS_ENDPOINT = 'https://leiria.sigmos.pt/app/sigmos/rpc_ocorrencias_table_fvd.php';
+const SIGMOS_PARAMS = {
+    op: 'fvd_ocorrencias',
+    sigmos: '5fcdfe5046f452b7df1cbeecb9b9b071',
+    oco_lista_local: 'localidade',
+    key: '4b203bfac32b55de9401bc28d8d1bc85'
+};
+const POLL_INTERVAL_MS = 30000; // 30 segundos
+
+async function fetchActiveOccurrences() {
+    const body = new URLSearchParams(SIGMOS_PARAMS);
+    const res = await fetch(SIGMOS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const html = await res.text();
+    return parseOccurrencesHtml(html);
+}
+
+function parseOccurrencesHtml(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const rows = doc.querySelectorAll('table.tabela_ocorrencias tbody tr');
+    const list = [];
+    rows.forEach(tr => {
+        const tds = tr.querySelectorAll('td');
+        if (tds.length < 7) return;
+
+        const horaB = tds[0].querySelector('b');
+        const horaStr = horaB ? horaB.textContent.trim() : '';
+        const dataMatch = tds[0].textContent.match(/(\d{2}-\d{2}-\d{4})/);
+        const dataStr = dataMatch ? dataMatch[1] : '';
+
+        const nInt = tds[1].textContent.trim();
+        const cod = tds[2].textContent.trim();
+        const local = tds[3].textContent.trim();
+
+        const corposSet = new Set();
+        tds[4].querySelectorAll('.logo-corporacao-sigla').forEach(s => corposSet.add(s.textContent.trim()));
+
+        const estadoSpan = tds[6].querySelector('.estado');
+        const estado = estadoSpan ? estadoSpan.textContent.trim() : '--';
+        let estadoClass = 'default';
+        if (estadoSpan) {
+            estadoSpan.classList.forEach(c => { if (c !== 'estado') estadoClass = c; });
+        }
+
+        let datetime = new Date();
+        if (dataStr && horaStr) {
+            const [dd, mm, yyyy] = dataStr.split('-');
+            const [hh, min] = horaStr.split(':');
+            datetime = new Date(+yyyy, +mm - 1, +dd, +hh, +min);
+        }
+
+        list.push({ nInt, cod, local, corpos: Array.from(corposSet), estado, estadoClass, datetime });
+    });
+    return list;
+}
+
+// ============================================================================
+// ARQUIVO ACUMULADO (construído em memória, a partir do momento em que o
+// dashboard arranca — esta fonte não tem histórico próprio, ver aviso no topo)
+// ============================================================================
+let archive = [];           // todas as ocorrências já vistas
+let archivedIds = new Set();
+let currentActive = [];     // snapshot mais recente das ocorrências ativas
+const startedAt = new Date();
+
+function ingest(activeList) {
+    activeList.forEach(o => {
+        if (!archivedIds.has(o.nInt)) {
+            archivedIds.add(o.nInt);
+            archive.push(o);
+        } else {
+            const existing = archive.find(a => a.nInt === o.nInt);
+            if (existing) { existing.estado = o.estado; existing.estadoClass = o.estadoClass; }
+        }
+    });
+}
+
+function isSameDay(d1, d2) { return d1.toDateString() === d2.toDateString(); }
+function lastNDays(n) {
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - (n - 1)); cutoff.setHours(0,0,0,0);
+    return archive.filter(o => o.datetime >= cutoff);
+}
+function countBy(list, keyFn) {
+    const map = {};
+    list.forEach(o => (Array.isArray(keyFn(o)) ? keyFn(o) : [keyFn(o)]).forEach(k => { map[k] = (map[k] || 0) + 1; }));
+    return map;
+}
+function topNKeys(map, n) {
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, n).map(e => e[0]);
+}
+
+// ============================================================================
+// GRÁFICOS (Chart.js)
+// ============================================================================
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.font.family = "'Chakra Petch', sans-serif";
+Chart.defaults.borderColor = '#1e293b';
+const gridOpt = { color: '#1e293b' };
+const PALETTE = ['#3b82f6', '#22d3ee', '#a78bfa', '#f59e0b', '#ef4444', '#84cc16', '#f472b6', '#64748b'];
+
+const chartCorpos = new Chart(document.getElementById('chartCorpos'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: PALETTE, borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grid: gridOpt }, x: { grid: { display: false } } } }
+});
+
+const chartCodigos = new Chart(document.getElementById('chartCodigos'), {
+    type: 'doughnut',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: PALETTE, borderColor: '#0f172a', borderWidth: 2 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } } }
+});
+
+const chartFreguesias = new Chart(document.getElementById('chartFreguesias'), {
+    type: 'bar',
+    data: { labels: [], datasets: [{ data: [], backgroundColor: '#3b82f6', borderRadius: 4 }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, ticks: { precision: 0 }, grid: gridOpt }, y: { grid: { display: false }, ticks: { font: { size: 9 } } } } }
+});
+
+const chartHourly = new Chart(document.getElementById('chartHourly'), {
+    type: 'line',
+    data: {
+        labels: Array.from({length: 24}, (_, h) => `${h}h`),
+        datasets: [{ data: Array(24).fill(0), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.15)', fill: true, tension: 0.35, pointRadius: 2 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grid: gridOpt }, x: { grid: { display: false } } } }
+});
+
+const chartWeekly = new Chart(document.getElementById('chartWeekly'), {
+    type: 'bar',
+    data: { labels: [], datasets: [] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } },
+        scales: { y: { beginAtZero: true, stacked: true, ticks: { precision: 0 }, grid: gridOpt }, x: { stacked: true, grid: { display: false } } } }
+});
+
+const chartMonthly = new Chart(document.getElementById('chartMonthly'), {
+    type: 'line',
+    data: { labels: [], datasets: [{ data: [], borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.15)', fill: true, tension: 0.3, pointRadius: 1.5 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grid: gridOpt }, x: { ticks: { maxTicksLimit: 8 }, grid: { display: false } } } }
+});
+
+// ============================================================================
+// ATUALIZAÇÃO DE TODOS OS GRÁFICOS E WIDGETS
+// ============================================================================
+function refreshAll() {
+    const now = new Date();
+    const today = archive.filter(o => isSameDay(o.datetime, now));
+    const week = lastNDays(7);
+    const month = lastNDays(30);
+
+    document.getElementById('statToday').innerText = today.length;
+    document.getElementById('statWeek').innerText = week.length;
+    document.getElementById('statMonth').innerText = month.length;
+    document.getElementById('statActive').innerText = currentActive.length;
+
+    const activeByEstado = countBy(currentActive, o => o.estado);
+    document.getElementById('statActiveBreak').innerText = Object.entries(activeByEstado).map(([k, v]) => `${k}: ${v}`).join(' · ') || 'Sem ocorrências ativas';
+
+    // Por corpo (hoje)
+    const byCorpo = countBy(today, o => o.corpos);
+    const corpoLabels = topNKeys(byCorpo, 8);
+    chartCorpos.data.labels = corpoLabels;
+    chartCorpos.data.datasets[0].data = corpoLabels.map(l => byCorpo[l]);
+    chartCorpos.update();
+
+    // Por código (hoje)
+    const byCod = countBy(today, o => o.cod);
+    const codLabels = topNKeys(byCod, 8);
+    chartCodigos.data.labels = codLabels.map(c => `Código ${c}`);
+    chartCodigos.data.datasets[0].data = codLabels.map(l => byCod[l]);
+    chartCodigos.update();
+
+    // Por local/freguesia (hoje)
+    const byLocal = countBy(today, o => o.local);
+    const localLabels = topNKeys(byLocal, 10);
+    chartFreguesias.data.labels = localLabels;
+    chartFreguesias.data.datasets[0].data = localLabels.map(l => byLocal[l]);
+    chartFreguesias.update();
+
+    // Ao longo do dia (por hora)
+    const hourly = Array(24).fill(0);
+    today.forEach(o => hourly[o.datetime.getHours()]++);
+    chartHourly.data.datasets[0].data = hourly;
+    chartHourly.update();
+
+    // Últimos 7 dias por corpo (empilhado) — usa os corpos vistos até agora
+    const allCorposSeen = topNKeys(countBy(archive, o => o.corpos), 6);
+    const days7 = []; for (let d = 6; d >= 0; d--) { const dt = new Date(); dt.setDate(dt.getDate() - d); days7.push(dt); }
+    chartWeekly.data.labels = days7.map(d => d.toLocaleDateString('pt-PT', { weekday: 'short', day: '2-digit' }));
+    chartWeekly.data.datasets = allCorposSeen.map((c, i) => ({
+        label: c, backgroundColor: PALETTE[i % PALETTE.length],
+        data: days7.map(d => archive.filter(o => isSameDay(o.datetime, d) && o.corpos.includes(c)).length)
+    }));
+    chartWeekly.update();
+
+    // Últimos 30 dias, total diário
+    const days30 = []; for (let d = 29; d >= 0; d--) { const dt = new Date(); dt.setDate(dt.getDate() - d); days30.push(dt); }
+    chartMonthly.data.labels = days30.map(d => d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' }));
+    chartMonthly.data.datasets[0].data = days30.map(d => archive.filter(o => isSameDay(o.datetime, d)).length);
+    chartMonthly.update();
+}
+
+// --- Lista de ocorrências ativas agora ---
+function renderLiveFeed() {
+    const ul = document.getElementById('liveFeed');
+    ul.innerHTML = '';
+    if (currentActive.length === 0) {
+        ul.innerHTML = '<li id="emptyFeed">Sem ocorrências ativas de momento.</li>';
+        return;
+    }
+    currentActive.slice().sort((a, b) => b.datetime - a.datetime).forEach(o => {
+        const li = document.createElement('li');
+        const badgeClass = o.estadoClass === 'warning' ? 'estado-warning' : (o.estadoClass === 'danger' ? 'estado-danger' : 'estado-default');
+        li.innerHTML = `
+            <div class="feed-top">
+                <span>${o.local} · Cód. ${o.cod}</span>
+                <span class="estado-badge ${badgeClass}">${o.estado}</span>
+            </div>
+            <div class="feed-bottom">${o.corpos.join(', ') || 'Sem meios listados'} · ${o.datetime.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'})}</div>`;
+        ul.appendChild(li);
+    });
+}
+
+// --- Relógio ---
+function updateClock() { document.getElementById('digitalClock').innerText = new Date().toLocaleTimeString('pt-PT'); }
+setInterval(updateClock, 1000);
+updateClock();
+document.getElementById('startedAtLabel').innerText = startedAt.toLocaleString('pt-PT');
+
+// --- Estado de ligação ---
+function setConnectionStatus(ok, errMsg) {
+    const el = document.getElementById('connStatus');
+    if (ok) {
+        el.innerText = `● LIGADO · última atualização ${new Date().toLocaleTimeString('pt-PT')}`;
+        el.style.color = '#22c55e'; el.style.borderColor = '#166534';
+    } else {
+        el.innerText = `● SEM LIGAÇÃO (${errMsg || 'erro'}) — possível bloqueio CORS, ver nota no chat`;
+        el.style.color = '#ef4444'; el.style.borderColor = '#7f1d1d';
+    }
+}
+
+// --- Ciclo de sondagem (polling) ---
+async function pollData() {
+    try {
+        const active = await fetchActiveOccurrences();
+        currentActive = active;
+        ingest(active);
+        setConnectionStatus(true);
+        document.getElementById('statLast').innerText = `Última verificação: ${new Date().toLocaleTimeString('pt-PT')}`;
+    } catch (e) {
+        console.warn('Erro ao obter dados do SIGMOS:', e.message);
+        setConnectionStatus(false, e.message);
+    }
+    refreshAll();
+    renderLiveFeed();
+}
+
+// --- Inicialização ---
+pollData();
+setInterval(pollData, POLL_INTERVAL_MS);
+</script>
+</body>
+</html>
