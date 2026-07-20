@@ -279,27 +279,18 @@ function categoriaDeCodigo(cod) { return CATEGORIA_NOME[cod[0]] || 'Outro'; }
 function corCategoria(cod) { return CATEGORIA_COR[cod[0]] || '#64748b'; }
 
 // ============================================================================
-// LIGAÇÃO AOS DADOS REAIS (SIGMOS / Preventech) — ocorrências ATIVAS
+// LIGAÇÃO AOS DADOS REAIS — via proxy PHP no teu próprio servidor
+// (ver proxy_ocorrencias.php; evita o bloqueio CORS do domínio do SIGMOS)
 // ============================================================================
-const SIGMOS_ENDPOINT = 'https://leiria.sigmos.pt/app/sigmos/rpc_ocorrencias_table_fvd.php';
-const SIGMOS_PARAMS = {
-    op: 'fvd_ocorrencias',
-    sigmos: '5fcdfe5046f452b7df1cbeecb9b9b071',
-    oco_lista_local: 'localidade',
-    key: '4b203bfac32b55de9401bc28d8d1bc85'
-};
+const PROXY_ENDPOINT = 'proxy_ocorrencias.php'; // caminho relativo — ajusta se o ficheiro estiver noutra pasta
 const POLL_INTERVAL_MS = 30000; // 30 segundos
 
 async function fetchActiveOccurrences() {
-    const body = new URLSearchParams(SIGMOS_PARAMS);
-    const res = await fetch(SIGMOS_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body.toString()
-    });
+    const res = await fetch(PROXY_ENDPOINT);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const html = await res.text();
-    return parseOccurrencesHtml(html);
+    const data = await res.json();
+    if (data.error) throw new Error(data.detail || data.error);
+    return parseOccurrencesHtml(data.html);
 }
 
 function parseOccurrencesHtml(html) {
