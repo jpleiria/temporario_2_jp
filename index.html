@@ -189,6 +189,11 @@
 </div>
 
 <script>
+// --- Relógio (arranca já, independente de tudo o resto) ---
+function updateClock() { document.getElementById('digitalClock').innerText = new Date().toLocaleTimeString('pt-PT'); }
+setInterval(updateClock, 1000);
+updateClock();
+
 // ============================================================================
 // TABELA OFICIAL DE CLASSIFICAÇÃO DE NATUREZAS DE OCORRÊNCIA (ANEPC)
 // ============================================================================
@@ -372,57 +377,72 @@ function topNKeys(map, n) {
 }
 
 // ============================================================================
-// GRÁFICOS (Chart.js)
+// GRÁFICOS (Chart.js) — protegido: se a biblioteca não carregar, o resto do
+// dashboard (relógio, ligação aos dados reais, feed ao vivo) continua a funcionar.
 // ============================================================================
-Chart.defaults.color = '#94a3b8';
-Chart.defaults.font.family = "'Chakra Petch', sans-serif";
-Chart.defaults.borderColor = '#1e293b';
+let chartsReady = false;
+let chartCorpos, chartCodigos, chartFreguesias, chartHourly, chartWeekly, chartMonthly;
 const gridOpt = { color: '#1e293b' };
 const PALETTE = ['#3b82f6', '#22d3ee', '#a78bfa', '#f59e0b', '#ef4444', '#84cc16', '#f472b6', '#64748b'];
 
-const chartCorpos = new Chart(document.getElementById('chartCorpos'), {
-    type: 'bar',
-    data: { labels: [], datasets: [{ data: [], backgroundColor: PALETTE, borderRadius: 4 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-        scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grid: gridOpt }, x: { grid: { display: false } } } }
-});
+try {
+    if (typeof Chart === 'undefined') throw new Error('Chart.js não carregou (CDN bloqueado ou sem rede)');
 
-const chartCodigos = new Chart(document.getElementById('chartCodigos'), {
-    type: 'doughnut',
-    data: { labels: [], datasets: [{ data: [], backgroundColor: PALETTE, borderColor: '#0f172a', borderWidth: 2 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } } }
-});
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.font.family = "'Chakra Petch', sans-serif";
+    Chart.defaults.borderColor = '#1e293b';
 
-const chartFreguesias = new Chart(document.getElementById('chartFreguesias'), {
-    type: 'bar',
-    data: { labels: [], datasets: [{ data: [], backgroundColor: '#3b82f6', borderRadius: 4 }] },
-    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-        scales: { x: { beginAtZero: true, ticks: { precision: 0 }, grid: gridOpt }, y: { grid: { display: false }, ticks: { font: { size: 9 } } } } }
-});
+    chartCorpos = new Chart(document.getElementById('chartCorpos'), {
+        type: 'bar',
+        data: { labels: [], datasets: [{ data: [], backgroundColor: PALETTE, borderRadius: 4 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grid: gridOpt }, x: { grid: { display: false } } } }
+    });
 
-const chartHourly = new Chart(document.getElementById('chartHourly'), {
-    type: 'line',
-    data: {
-        labels: Array.from({length: 24}, (_, h) => `${h}h`),
-        datasets: [{ data: Array(24).fill(0), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.15)', fill: true, tension: 0.35, pointRadius: 2 }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-        scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grid: gridOpt }, x: { grid: { display: false } } } }
-});
+    chartCodigos = new Chart(document.getElementById('chartCodigos'), {
+        type: 'doughnut',
+        data: { labels: [], datasets: [{ data: [], backgroundColor: PALETTE, borderColor: '#0f172a', borderWidth: 2 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } } }
+    });
 
-const chartWeekly = new Chart(document.getElementById('chartWeekly'), {
-    type: 'bar',
-    data: { labels: [], datasets: [] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } },
-        scales: { y: { beginAtZero: true, stacked: true, ticks: { precision: 0 }, grid: gridOpt }, x: { stacked: true, grid: { display: false } } } }
-});
+    chartFreguesias = new Chart(document.getElementById('chartFreguesias'), {
+        type: 'bar',
+        data: { labels: [], datasets: [{ data: [], backgroundColor: '#3b82f6', borderRadius: 4 }] },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true, ticks: { precision: 0 }, grid: gridOpt }, y: { grid: { display: false }, ticks: { font: { size: 9 } } } } }
+    });
 
-const chartMonthly = new Chart(document.getElementById('chartMonthly'), {
-    type: 'line',
-    data: { labels: [], datasets: [{ data: [], borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.15)', fill: true, tension: 0.3, pointRadius: 1.5 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-        scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grid: gridOpt }, x: { ticks: { maxTicksLimit: 8 }, grid: { display: false } } } }
-});
+    chartHourly = new Chart(document.getElementById('chartHourly'), {
+        type: 'line',
+        data: {
+            labels: Array.from({length: 24}, (_, h) => `${h}h`),
+            datasets: [{ data: Array(24).fill(0), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.15)', fill: true, tension: 0.35, pointRadius: 2 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grid: gridOpt }, x: { grid: { display: false } } } }
+    });
+
+    chartWeekly = new Chart(document.getElementById('chartWeekly'), {
+        type: 'bar',
+        data: { labels: [], datasets: [] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } },
+            scales: { y: { beginAtZero: true, stacked: true, ticks: { precision: 0 }, grid: gridOpt }, x: { stacked: true, grid: { display: false } } } }
+    });
+
+    chartMonthly = new Chart(document.getElementById('chartMonthly'), {
+        type: 'line',
+        data: { labels: [], datasets: [{ data: [], borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.15)', fill: true, tension: 0.3, pointRadius: 1.5 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grid: gridOpt }, x: { ticks: { maxTicksLimit: 8 }, grid: { display: false } } } }
+    });
+
+    chartsReady = true;
+} catch (e) {
+    console.warn('Gráficos indisponíveis:', e.message);
+    document.querySelectorAll('.panel-body').forEach(el => {
+        if (el.querySelector('canvas')) el.innerHTML = '<div style="color:#64748b; font-size:0.75rem; padding:20px; text-align:center;">Gráfico indisponível (biblioteca não carregou). Os restantes indicadores continuam a funcionar normalmente.</div>';
+    });
+}
 
 // ============================================================================
 // ATUALIZAÇÃO DE TODOS OS GRÁFICOS E WIDGETS
@@ -440,6 +460,8 @@ function refreshAll() {
 
     const activeByEstado = countBy(currentActive, o => o.estado);
     document.getElementById('statActiveBreak').innerText = Object.entries(activeByEstado).map(([k, v]) => `${k}: ${v}`).join(' · ') || 'Sem ocorrências ativas';
+
+    if (!chartsReady) return; // biblioteca de gráficos indisponível — widgets acima já foram atualizados
 
     // Por corpo (hoje)
     const byCorpo = countBy(today, o => o.corpos);
@@ -507,10 +529,7 @@ function renderLiveFeed() {
     });
 }
 
-// --- Relógio ---
-function updateClock() { document.getElementById('digitalClock').innerText = new Date().toLocaleTimeString('pt-PT'); }
-setInterval(updateClock, 1000);
-updateClock();
+// --- Marca a hora de arranque para a nota de limitação ---
 document.getElementById('startedAtLabel').innerText = startedAt.toLocaleString('pt-PT');
 
 // --- Estado de ligação ---
